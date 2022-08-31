@@ -3,7 +3,7 @@ from html import entities
 
 from typing import Iterable, Iterator, Optional, TYPE_CHECKING
 
-import numpy as np # type: ignore
+import numpy as np  # type: ignore
 from tcod.console import Console
 
 from entity import Actor, Item
@@ -13,10 +13,11 @@ if TYPE_CHECKING:
     from engine import Engine
     from entity import Entity
 
+
 class GameMap:
     def __init__(
-        self, engine: Engine, width: int, height: int, entities: Iterable[Entity] = ()
-        ):
+            self, engine: Engine, width: int, height: int, entities: Iterable[Entity] = ()
+    ):
         self.engine = engine
         self.width, self.height = width, height
         self.entities = set(entities)
@@ -24,10 +25,10 @@ class GameMap:
 
         self.visible = np.full(
             (width, height), fill_value=False, order="F"
-        ) # Tiles the player can currently see
+        )  # Tiles the player can currently see
         self.explored = np.full(
             (width, height), fill_value=False, order="F"
-        ) # tiles the player has seen before
+        )  # tiles the player has seen before
 
         self.downstairs_location = (0, 0)
 
@@ -49,13 +50,13 @@ class GameMap:
         yield from (entity for entity in self.entities if isinstance(entity, Item))
 
     def get_blocking_entity_at_location(
-        self, location_x: int, location_y: int
+            self, location_x: int, location_y: int
     ) -> Optional[Entity]:
         for entity in self.entities:
             if (
-                entity.blocks_movement 
-                and entity.x == location_x 
-                and entity.y == location_y
+                    entity.blocks_movement
+                    and entity.x == location_x
+                    and entity.y == location_y
             ):
                 return entity
 
@@ -68,11 +69,11 @@ class GameMap:
 
         return None
 
-    def in_bounds(self, x:int, y:int) -> bool:
+    def in_bounds(self, x: int, y: int) -> bool:
         """Return True if x and y are inside of the bounds of this map."""
-        return 0 <= x < self.width and 0<=y<self.height
+        return 0 <= x < self.width and 0 <= y < self.height
 
-    def render(self, console:Console) -> None:
+    def render(self, console: Console) -> None:
         """
         Renders the map.
         
@@ -80,7 +81,7 @@ class GameMap:
         If it isn't, but it's in the "explored" array, then daw it with the "dark" colors.
         Otherwise, the default is "SHROUD".
         """
-        console.tiles_rgb[0 : self.width, 0 : self.height] = np.select(
+        console.tiles_rgb[0: self.width, 0: self.height] = np.select(
             condlist=[self.visible, self.explored],
             choicelist=[self.tiles["light"], self.tiles["dark"]],
             default=tile_types.SHROUD,
@@ -89,7 +90,7 @@ class GameMap:
         entities_sorted_for_rendering = sorted(
             self.entities, key=lambda x: x.render_order.value
         )
-        
+
         for entity in entities_sorted_for_rendering:
             # Only print entities that are in the FOV
             if self.visible[entity.x, entity.y]:
@@ -97,23 +98,22 @@ class GameMap:
                     entity.x, entity.y, entity.char, fg=entity.color
                 )
 
+
 class GameWorld:
     """
     Holds the settings for the GameMap, and generates new maps when moving down the stairs.
     """
 
     def __init__(
-        self,
-        *,
-        engine: Engine,
-        map_width: int,
-        map_height: int,
-        max_rooms: int,
-        room_min_size: int,
-        room_max_size: int,
-        max_monsters_per_room: int,
-        max_items_per_room: int,
-        current_floor: int = 0
+            self,
+            *,
+            engine: Engine,
+            map_width: int,
+            map_height: int,
+            max_rooms: int,
+            room_min_size: int,
+            room_max_size: int,
+            current_floor: int = 0
     ):
         self.engine = engine
 
@@ -124,9 +124,6 @@ class GameWorld:
 
         self.room_min_size = room_min_size
         self.room_max_size = room_max_size
-
-        self.max_monsters_per_room = max_monsters_per_room
-        self.max_items_per_room = max_items_per_room
 
         self.current_floor = current_floor
 
@@ -141,7 +138,5 @@ class GameWorld:
             room_max_size=self.room_max_size,
             map_width=self.map_width,
             map_height=self.map_height,
-            max_monsters_per_room=self.max_monsters_per_room,
-            max_items_per_room=self.max_items_per_room,
             engine=self.engine,
         )
