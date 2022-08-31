@@ -8,8 +8,8 @@ import tcod
 
 import actions
 from actions import (
-    Action, 
-    BumpAction, 
+    Action,
+    BumpAction,
     PickupAction,
     WaitAction
 )
@@ -84,6 +84,7 @@ class BaseEventHandler(tcod.event.EventDispatch[ActionOrHandler]):
     def ev_quit(self, event: tcod.event.Quit) -> Optional[Action]:
         raise SystemExit()
 
+
 class PopupMessage(BaseEventHandler):
     """Display a popup text window."""
 
@@ -127,7 +128,7 @@ class EventHandler(BaseEventHandler):
                 return GameOverEventHandler(self.engine)
             elif self.engine.player.level.requires_level_up:
                 return LevelUpEventHandler(self.engine)
-            return MainGameEventHandler(self.engine)    # Return to the main handler.
+            return MainGameEventHandler(self.engine)  # Return to the main handler.
         return self
 
     def handle_action(self, action: Optional[Action]) -> bool:
@@ -142,7 +143,7 @@ class EventHandler(BaseEventHandler):
             action.perform()
         except exceptions.Impossible as exc:
             self.engine.message_log.add_message(exc.args[0], color.impossible)
-            return False    # Skip enemy turn on exceptions.
+            return False  # Skip enemy turn on exceptions.
 
         self.engine.handle_enemy_turns()
 
@@ -156,12 +157,13 @@ class EventHandler(BaseEventHandler):
     def on_render(self, console: tcod.Console) -> None:
         self.engine.render(console)
 
+
 class AskUserEventHandler(EventHandler):
     """Handles user input for actions which require special input."""
 
     def ev_keydown(self, event: tcod.event.KeyDown) -> Optional[ActionOrHandler]:
         """By default any key exits this input handler."""
-        if event.sym in {   # Ignore modifier keys.
+        if event.sym in {  # Ignore modifier keys.
             tcod.event.K_LSHIFT,
             tcod.event.K_RSHIFT,
             tcod.event.K_LCTRL,
@@ -173,7 +175,7 @@ class AskUserEventHandler(EventHandler):
         return self.on_exit()
 
     def ev_mousebuttondown(
-        self, event: tcod.event.MouseButtonDown
+            self, event: tcod.event.MouseButtonDown
     ) -> Optional[ActionOrHandler]:
         """By default any mouse click exits this input handler."""
         return self.on_exit()
@@ -184,6 +186,7 @@ class AskUserEventHandler(EventHandler):
         By default this returns to the main event handler.
         """
         return MainGameEventHandler(self.engine)
+
 
 class CharacterScreenEventHandler(AskUserEventHandler):
     TITLE = "Character Information"
@@ -230,6 +233,7 @@ class CharacterScreenEventHandler(AskUserEventHandler):
             x=x + 1, y=y + 5, string=f"Defense: {self.engine.player.fighter.defense}"
         )
 
+
 class LevelUpEventHandler(AskUserEventHandler):
     TITLE = "Level Up"
 
@@ -248,15 +252,15 @@ class LevelUpEventHandler(AskUserEventHandler):
             height=8,
             title=self.TITLE,
             clear=True,
-            fg=(255,255,255),
-            bg=(0,0,0),
+            fg=(255, 255, 255),
+            bg=(0, 0, 0),
         )
 
         console.print(x=x + 1, y=1, string="Congratulations! You level up!")
-        console.print(x=x+1, y=2, string="Select an attribute to increase.")
+        console.print(x=x + 1, y=2, string="Select an attribute to increase.")
 
         console.print(
-            x=x+1,
+            x=x + 1,
             y=4,
             string=f"a) Constritution (+20HP, from {self.engine.player.fighter.max_hp})",
         )
@@ -266,7 +270,7 @@ class LevelUpEventHandler(AskUserEventHandler):
             string=f"b) Strenth (+1 attack, from {self.engine.player.fighter.power})",
         )
         console.print(
-            x=x+1,
+            x=x + 1,
             y=6,
             string=f"c) Agility (+1 defense, from {self.engine.player.fighter.defense})",
         )
@@ -340,9 +344,17 @@ class InventoryEventHandler(AskUserEventHandler):
         if number_of_items_in_inventory > 0:
             for i, item in enumerate(self.engine.player.inventory.items):
                 item_key = chr(ord("a") + i)
-                console.print(x + 1, y + i + 1, f"({item_key}) {item.name}")
+
+                is_equipped = self.engine.player.equipment.item_is_equipped(item)
+
+                item_string = f"({item_key}) {item.name}"
+
+                if is_equipped:
+                    item_string = f"{item_string} (E)"
+
+                console.print(x + 1, y + i + 1, item_string)
         else:
-            console.print(x+1, y+1, "(Empty)")
+            console.print(x + 1, y + 1, "(Empty)")
 
     def ev_keydown(self, event: tcod.event.KeyDown) -> Optional[ActionOrHandler]:
         player = self.engine.player
@@ -362,14 +374,21 @@ class InventoryEventHandler(AskUserEventHandler):
         """Called when the user selects a valid item."""
         raise NotImplementedError()
 
+
 class InventoryActivateHandler(InventoryEventHandler):
     """Handle using an inventory item."""
 
     TITLE = "Select an item to use"
 
     def on_item_selected(self, item: Item) -> Optional[ActionOrHandler]:
-        """Return the action for the selected item."""
-        return item.consumable.get_action(self.engine.player)
+        if item.consumable:
+            # Return the action for the selected item.
+            return item.consumable.get_action(self.engine.player)
+        elif item.equippable:
+            return actions.EquipAction(self.engine.player, item)
+        else:
+            return None
+
 
 class InventoryDropHandler(InventoryEventHandler):
     """Handle dropping an inventory item."""
@@ -441,11 +460,12 @@ class LookHandler(SelectIndexHandler):
         """Return to main handler."""
         return MainGameEventHandler(self.engine)
 
+
 class SingleRangedAttackHandler(SelectIndexHandler):
     """Handles targeting a single enemy. Only the enemy selected will be affected."""
 
     def __init__(self, engine: Engine, callback: Callable[[Tuple[int, int]], Optional[Action]]
-    ):
+                 ):
         super().__init__(engine)
 
         self.callback = callback
@@ -453,14 +473,15 @@ class SingleRangedAttackHandler(SelectIndexHandler):
     def on_index_selected(self, x: int, y: int) -> Optional[Action]:
         return self.callback((x, y))
 
+
 class AreaRangedAttackHandler(SelectIndexHandler):
     """Handles targeting an area within a given radius. Any entity within the area will be affected."""
 
     def __init__(
-        self,
-        engine: Engine,
-        radius: int,
-        callback: Callable[[Tuple[int, int]], Optional[Action]],
+            self,
+            engine: Engine,
+            radius: int,
+            callback: Callable[[Tuple[int, int]], Optional[Action]],
     ):
         super().__init__(engine)
 
@@ -486,6 +507,7 @@ class AreaRangedAttackHandler(SelectIndexHandler):
     def on_index_selected(self, x: int, y: int) -> Optional[Action]:
         return self.callback((x, y))
 
+
 class MainGameEventHandler(EventHandler):
     def ev_keydown(self, event: tcod.event.KeyDown) -> Optional[ActionOrHandler]:
         action: Optional[Action] = None
@@ -496,7 +518,7 @@ class MainGameEventHandler(EventHandler):
         player = self.engine.player
 
         if key == tcod.event.K_PERIOD and modifier & (
-            tcod.event.KMOD_LSHIFT | tcod.event.KMOD_RSHIFT
+                tcod.event.KMOD_LSHIFT | tcod.event.KMOD_RSHIFT
         ):
             return actions.TakeStairsAction(player)
 
@@ -505,7 +527,7 @@ class MainGameEventHandler(EventHandler):
             action = BumpAction(player, dx, dy)
         elif key in WAIT_KEYS:
             action = WaitAction(player)
-            
+
         elif key == tcod.event.K_ESCAPE:
             raise SystemExit()
         elif key == tcod.event.K_v:
@@ -526,12 +548,13 @@ class MainGameEventHandler(EventHandler):
         # no valid key was pressed
         return action
 
+
 class GameOverEventHandler(EventHandler):
     def on_quit(self) -> None:
         """Handle exiting out of a finished game."""
         if os.path.exists("savegame.sav"):
-            os.remove("savegame.sav")   # Deletes the active save file.
-        raise exceptions.QuitWithoutSaving()    # Avoid saving a finished game.
+            os.remove("savegame.sav")  # Deletes the active save file.
+        raise exceptions.QuitWithoutSaving()  # Avoid saving a finished game.
 
     def ev_quit(self, event: tcod.event.Quit) -> None:
         self.on_quit()
@@ -540,12 +563,14 @@ class GameOverEventHandler(EventHandler):
         if event.sym == tcod.event.K_ESCAPE:
             self.on_quit()
 
+
 CURSOR_Y_KEYS = {
     tcod.event.K_UP: -1,
     tcod.event.K_DOWN: 1,
     tcod.event.K_PAGEUP: -10,
     tcod.event.K_PAGEDOWN: 10,
 }
+
 
 class HistoryViewer(EventHandler):
     """Print the history on a larger window which can be navigated."""
@@ -556,7 +581,7 @@ class HistoryViewer(EventHandler):
         self.cursor = self.log_length - 1
 
     def on_render(self, console: tcod.Console) -> None:
-        super().on_render(console)   # Draw the main state as the background
+        super().on_render(console)  # Draw the main state as the background
 
         log_console = tcod.Console(console.width - 6, console.height - 6)
 
@@ -591,9 +616,9 @@ class HistoryViewer(EventHandler):
                 # Otherwise move while staying clamped to the bounds of the history log.
                 self.cursor = max(0, min(self.cursor + adjust, self.log_length - 1))
         elif event.sym == tcod.event.K_HOME:
-            self.cursor = 0 # Move directly to the top message.
+            self.cursor = 0  # Move directly to the top message.
         elif event.sym == tcod.event.K_END:
-            self.cursor = self.log_length - 1   # Move directly to the last message.
-        else:   # Any other key moves back to the main game state.
+            self.cursor = self.log_length - 1  # Move directly to the last message.
+        else:  # Any other key moves back to the main game state.
             return MainGameEventHandler(self.engine)
         return None
